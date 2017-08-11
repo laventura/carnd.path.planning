@@ -1,6 +1,31 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
-   
+
+The objective of this project is to have a simulated car drive itself safely along a ~7 mile highway loop, in traffic, without colliding into other vehicles while changing lanes, at around 50 miles/hour. The simulated car (called Ego vehicle) is the black car, and should speed up / down, accelerate / decelerate within limits. The limits are:
+
+- max speed: 50 miles/hour
+- max accelerate 10 m/s^2
+- max jerk 10 m/s^3 (derivative of acceleration)
+
+### TLDR:
+
+Here's the summary video of the car driving along the highway without any violations.
+[Video[See video on YouTube]](https://www.youtube.com/watch?v=WsdJ6LP6f-E&feature=youtu.be)
+
+Screenshots
+![Simulator](images/screenshot_10.png)
+
+Simulator with debug info:
+![Simulator](images/screenshot_10_term.png)
+
+### Highway
+
+Here's a quick snapshot of the highway.
+![Highway](images/highway_track.png)
+
+
+---
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
