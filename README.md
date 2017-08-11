@@ -10,7 +10,7 @@ The objective of this project is to have a simulated car drive itself safely alo
 ### TLDR:
 
 Here's the summary video of the car driving along the highway without any violations.
-[Video[See video on YouTube]](https://www.youtube.com/watch?v=WsdJ6LP6f-E&feature=youtu.be)
+[Video[See video on YouTube]](https://youtu.be/oVQDk5aBwvI)
 
 Screenshots
 ![Simulator](images/screenshot_10.png)
@@ -23,6 +23,71 @@ Simulator with debug info:
 Here's a quick snapshot of the highway.
 ![Highway](images/highway_track.png)
 
+## Path Planning Approach
+
+The approach for this project is somewhat based on the project walkthrough. 
+
+We use Frenet coordinates (s, d) instead of regular X,Y coordinates as this simplifies the path planning. In Frenet coordinates, **s** denotes _longitudinal displacement along the road_, while **d** denotes _lateral displacement from the center (yellow) dividing line_. The track is approx. 6947 meters long, thus `s` varies from 0-6947 (length of the track). The `d` value shows distance away from center divider: each lane is 4 meters wide, and there are three lanes: Left, Center, Right. Thus, the `d` value for Left lane will be `0 < d < 4`, for Center lane (`4 < d < 8`), and for Right lane (`8 < d < 12`). Thus, the `(s,d)` coordinates fully specify a car's position on the track.
+
+We use Frenet coordinates with transforms and spline interpolation to generate paths. As the picture above shows, the highway map is a loop, and in Frenet coordinates the outline is jagged and has sharply cut line segments. This results in sharp acceleration and jerk around the corners. To help smooth this out, _spline interpolation_ was used.
+
+
+The key elements of the project are broken down into three parts: 
+
+- Sensor Fusion: understanding (nearby) traffic
+- Path Planning: determining lane change behavior
+- Trajectory construction
+
+### Sensor Fusion - Analyzing Traffic Information
+
+In a typical self-driving car, various sensors (LIDARs, radars, cameras, etc.) continously provide enviroment information to answer key questions: What objects are nearby? How far are they? Are they static or dynamic? How fast and in what direction are they traveling? Etc. 
+
+The simulator in this particular case provides a smaller subset of information: Cars traveling in this side of the Ego car. It does not provide any info on cars in the opposite side of the road (i.e. on-coming traffic). The highway track is a 3-lane highway on each side. The Ego car starts in the Center lane, and then drives itself based on near-by traffic.
+
+In our implementation, the Ego car first analyzes sensor fusion data to determine its **reference velocity** 
+-- Is there a car in our lane, infront of us, within 30 meters? If so, follow its speed
+-- Is there a car in our lane, within 20 meters? If so, slow down to something _less than_ leading car's speed
+-- If no car ahead of us, maintain a _reference speed_ of **49 miles/hour**, so that we don't violate speed limit
+
+This is implemented in lines 275-332 of main.cpp. 
+
+### Path Planning: Lane Change Behavior
+
+For lane change behavior, we use some simple heuristics. The car prefers to stay in its lane, unless there's traffic ahead, in which case, it will try to find a lane it can _safely_ move into.
+
+1. Stay in the lane, and drive at _reference velocity_ for as long as possible.
+2. If there's traffic ahead (as determined above), flag for a lane change.
+3. First, check the traffic in the lane _left of current lane_ (if it exists, i.e. if the ego car is not already in Left lane). Find the _closest front_ and _closest back_ gaps in this lane. Only if there's enough space in the front (20 meter buffer) and back (13 meter buffer), set **target lane** to this lane.
+4. If the above (left-er) lane isn't available to change into, check traffic in the lane _right of the current lane_ (if such a lane exists, i.e. car is not already in the extreme Right lane). Perform the same evaluation, and set **target lane** to this lane.
+
+This is implemented in lines 334-388 in main.cpp and in the function `is_lane_safe()` (lines 66-144).
+
+### Trajectory Construction
+
+As mentioned, we use Frenet coordinates (s, d) for path construction based on reference velocity and target `d` value for the target lane. Instead of a large number of waypoints, we use three waypoints widely spaced (at 30 meters interval) and interpolate a smooth path between these using spline interpolation. These are the _anchor points_. (This technique is discussed in the project walkthrough). To ensure that acceleration stays under 10 m/s^2, a constant acceleration is added to or subtracted from the reference velocity. The three anchor points are converted to the local coordinate space (via shift and rotation), and interpolated points are evenly spaced out such that each point is traversed in 0.02 seconds (the `time interval`). This is implemented in lines 420-493 in main.cpp. The points are then converted back to frenet coordinates, and fed to the simulator.
+
+## Results
+
+The ego car can safely drive around the entire track at just under 50 miles/hour, without any violations. I ran the simulator for various lengths (5 miles to 12 miles) successfully. 
+
+Here is a resulting video showing a successful 5-mile drive.
+
+[Video[See video on YouTube]](https://youtu.be/oVQDk5aBwvI)
+
+### Improvements
+
+The ego car drives itself fully autonomously along the entire highway track. However, there are limitations because of the simplified logic. Since the ego car prefers to stay in its lane and test for a safe _left_ lane first, it can get stuck behind a slow moving car if there's traffic in the left lane, even if the right lane is empty, although it does find its way correctly. Also, at times, the ego car can switch back and forth between Left lane to Center lane, due to traffic ahead, although this too is eventually handled.
+
+Secondly, currently only _implicit costs_ are awarded for lane change behavior. That is, the costs are binary 0/1 if a lane is safe to move into or not. A better alternative would be using true cost functions that give varying costs based on:
+
+- trajectories available
+- traffic in neighboring lanes
+- acceleration / jerk values
+- collision avoidance
+
+Thirdly, a *Jerk Minimization* technique could be used that smoothes out, using a quintic polynomial, the possible trajectories available to the ego car.
+
+Fourth, one could project the future behavior of traffic and try to predict their trajectory and thus make the car more proactive.
 
 ---
 
